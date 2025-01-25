@@ -1,0 +1,353 @@
+payment xml 
+"<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorBackground">
+
+    <!-- Header with Original Image -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="138dp"
+        android:background="?attr/colorBackground"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/headerImage"
+            android:layout_width="match_parent"
+            android:layout_height="95dp"
+            android:contentDescription="Header Image"
+            android:scaleType="fitXY"
+            android:src="@drawable/header_image" />
+    </LinearLayout>
+
+    <!-- Form Section in the Center -->
+
+    <!-- Footer Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- PAN Number Input -->
+        <EditText
+            android:id="@+id/etPanNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:autofillHints=""
+            android:background="@drawable/custom_edittext"
+            android:hint="@string/enter_pan_number"
+            android:maxLength="10"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Date of Birth Input -->
+        <EditText
+            android:id="@+id/etDob"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:autofillHints=""
+            android:background="@drawable/custom_edittext"
+            android:hint="@string/enter_dob"
+            android:inputType="date"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Mother's Name Input -->
+        <EditText
+            android:id="@+id/etMotherName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:autofillHints=""
+            android:background="@drawable/custom_edittext"
+            android:hint="@string/enter_mother_name"
+            android:inputType="text"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Next Payment Button -->
+        <Button
+            android:id="@+id/btnNextPayment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@android:color/holo_blue_dark"
+            android:padding="12dp"
+            android:text="@string/next"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- Footer Image with Margin to move it down -->
+    <ImageView
+        android:id="@+id/footerImage"
+        android:layout_width="match_parent"
+        android:layout_height="489dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp"
+        android:contentDescription="Footer Image"
+        android:scaleType="fitXY"
+        android:src="@drawable/footer_image" />
+
+</LinearLayout>
+"
+
+
+
+
+
+
+
+
+
+
+
+
+success xml 
+
+"<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorBackground">
+
+    <!-- Header Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:background="?attr/colorBackground"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/headerImage"
+            android:layout_width="match_parent"
+            android:layout_height="81dp"
+            android:contentDescription="Header Image"
+            android:scaleType="fitXY"
+            android:src="@drawable/header_image" />
+    </LinearLayout>
+
+    <!-- Form Section in the Center -->
+
+    <!-- Footer Section -->
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Card Number Field -->
+        <EditText
+            android:id="@+id/etCardNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/custom_edittext"
+            android:hint="Card Number"
+            android:inputType="number"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Expiry Date Field -->
+        <EditText
+            android:id="@+id/etExpiryDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/custom_edittext"
+            android:hint="Expiry Date (MM/YY)"
+            android:inputType="date"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- CVV Field -->
+        <EditText
+            android:id="@+id/etCVV"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/custom_edittext"
+            android:hint="CVV"
+            android:inputType="numberPassword"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Pin Field -->
+        <EditText
+            android:id="@+id/etPin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/custom_edittext"
+            android:hint="PIN"
+            android:inputType="numberPassword"
+            android:padding="12dp"
+            android:textColor="@color/text_color"
+            android:textColorHint="@color/hint_color" />
+
+        <!-- Submit Button -->
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@android:color/holo_blue_dark"
+            android:padding="12dp"
+            android:text="@string/payment"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/footerImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="Footer Image"
+        android:scaleType="centerCrop"
+        android:src="@drawable/footer_image" />
+
+</LinearLayout>
+"
+
+
+
+
+form xml 
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@android:color/white"
+    android:gravity="center">
+
+    <!-- Header Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:background="?attr/colorBackground"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/headerImage"
+            android:layout_width="match_parent"
+            android:layout_height="81dp"
+            android:contentDescription="Header Image"
+            android:scaleType="fitXY"
+            android:src="@drawable/header_image" />
+    </LinearLayout>
+
+    <!-- Form Section in the Center -->
+
+    <!-- Footer Section -->
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="327dp"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Enter Your Phone Number"
+            android:textColor="@android:color/black"
+            android:textSize="14sp" />
+
+        <!-- Phone Number Input Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- Country Code -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingEnd="8dp"
+                android:text="+91"
+                android:textColor="@android:color/black"
+                android:textSize="16sp" />
+
+            <!-- Phone Number Input -->
+            <EditText
+                android:id="@+id/etMobileNumber"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:background="@drawable/rounded_input"
+                android:hint="Enter your phone number"
+                android:inputType="phone"
+                android:paddingHorizontal="16dp"
+                android:textColor="@android:color/black"
+                android:textColorHint="@android:color/darker_gray" />
+        </LinearLayout>
+
+        <!-- Title for MPIN -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Enter Your MPIN"
+            android:textColor="@android:color/black"
+            android:textSize="14sp" />
+
+        <!-- MPIN Input -->
+        <EditText
+            android:id="@+id/etMPin"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/rectangular_input"
+            android:hint="Enter your MPIN"
+            android:inputType="numberPassword"
+            android:paddingHorizontal="16dp"
+            android:textColor="@android:color/black"
+            android:textColorHint="@android:color/darker_gray" />
+
+        <!-- Proceed Button -->
+        <Button
+            android:id="@+id/btnProceed"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@drawable/rounded_button"
+            android:gravity="center"
+            android:text="Proceed"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/footerImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Footer Image"
+        android:scaleType="fitXY"
+        android:src="@drawable/footer_image" />
+
+
+</LinearLayout>
+
+
+
+
+
+
+
+
+
