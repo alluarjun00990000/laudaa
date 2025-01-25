@@ -1,0 +1,42 @@
+# Obfuscation (नाम बदलना)
+-dontusemixedcaseclassnames
+-dontpreverify
+-optimizationpasses 5
+-overloadaggressively
+-flattenpackagehierarchy
+-repackageclasses obfuscated
+
+# हटाएं डिबग जानकारी
+-dontusemixedcaseclassnames
+-dontoptimize
+-dontwarn android.support.**
+-dontwarn kotlinx.**
+-dontwarn kotlin.**
+
+# Native Code सुरक्षित करें
+-keepclasseswithmembers class * {
+    native <methods>;
+}
+
+# प्रतिबंधित करें Reflection (रिफ्लेक्शन सुरक्षा)
+-keepattributes *Annotation*
+-keep class * implements android.os.Parcelable {
+    public static final android.os.Parcelable$Creator *;
+}
+
+# ProGuard कोड को अधिक कठिन और सुरक्षित बनाने के लिए
+-keep public class * extends android.app.Application
+-keep public class * extends androidx.lifecycle.ViewModel
+
+# Gson और Retrofit को सुरक्षित रखें
+-keep class com.google.gson.** { *; }
+-keep class retrofit2.** { *; }
+
+# हटा दें डिबग लॉग्स
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}
